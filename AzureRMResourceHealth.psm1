@@ -137,6 +137,7 @@ function Get-AzureRmResourceHealth
 		.LINK
 			
 	#>
+	[CmdletBinding()]
 	param
 	(
 		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=1)]
@@ -146,7 +147,9 @@ function Get-AzureRmResourceHealth
 		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=3)]
 		[string]$ResourceType,
 		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=4)]
-		[string]$ResourceName
+		[string]$ResourceName,
+		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=5)]
+		[switch]$Current
 	)
 	try
 	{
@@ -160,26 +163,38 @@ function Get-AzureRmResourceHealth
 			$Subscription = Get-AzureRmSubscription -SubscriptionId $SubscriptionId;
 			$SubscriptionPart = "/subscriptions/$($Subscription.SubscriptionId)";
 		}
-
-		$ResoucrGroupPart = "";
+		Write-Verbose $SubscriptionPart
+		$ResourceGroupPart = "";
 		if ($ResourceGroupName)
 		{
 			$ResourceGroup = Get-AzureRmResourceGroup -Name $ResourceGroupName
-			$ResoucrGroupPart = "/resourceGroups/$($ResourceGroup.ResourceGroupName)";
+			$ResourceGroupPart = "/resourceGroups/$($ResourceGroup.ResourceGroupName)";
 		}
-
+		Write-Verbose $ResourceGroupPart
 		$ResourceProviderPart = "";
 		if ($ResourceType)
 		{
 			$Resource = Get-AzureRmResource -ResourceName $ResourceName -ResourceType $ResourceType -ResourceGroupName $ResourceGroup.ResourceGroupName;
 			$ResourceProviderPart = "/providers/$($ResourceType)/$($ResourceName)";
 		}
-
+		Write-Verbose $ResourceProviderPart
 		$ResourceHealthPart = '/providers/Microsoft.ResourceHealth/availabilityStatuses';
-		
-		$ResourceId = "$($SubscriptionPart)$($ResoucrGroupPart)$($ResourceProviderPart)$($ResourceHealthPart)"
 
-		$resourceHealth = Get-AzureRmResource -ResourceId $ResourceID -ApiVersion $ApiVersion;
+		# https://management.azure.com/subscriptions/9f304164-74d6-4812-a87e-f1de642bd22c/resourceGroups/azuresupport1/providers/Microsoft.ClassicCompute/virtualMachines/azuresupport1/providers/Microsoft.ResourceHealth/availabilityStatuses/current?api-version=2015-01-01&$expand=recommendedActions’
+		# https://management.azure.com/subscriptions/4970d23e-ed41-4670-9c19-02a1d2808ff9/resourceGroups/Default-Web-WestEurope/providers/Microsoft.Web/sites/rhctestenvStandardWebsite/providers/Microsoft.ResourceHealth/availabilityStatuses?api-version=2015-01-01 
+		
+		$ResourceId = "$($SubscriptionPart)$($ResourceGroupPart)$($ResourceProviderPart)$($ResourceHealthPart)";
+		Write-Verbose $ResourceId
+
+		if ($Current)
+		{
+			$resourceHealth = Get-AzureRmResource -ResourceId $ResourceID -ApiVersion $ApiVersion |Where-Object -Property Name -EQ 'current';
+		}
+		else
+		{
+			$resourceHealth = Get-AzureRmResource -ResourceId $ResourceID -ApiVersion $ApiVersion;
+		}
+		
 		return ($resourceHealth |ForEach-Object {New-Object -TypeName psobject -Property @{
 			Name=$_.Name;
 			ResourceName=$_.ResourceName;
