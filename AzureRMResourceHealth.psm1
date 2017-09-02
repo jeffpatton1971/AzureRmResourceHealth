@@ -149,7 +149,9 @@ function Get-AzureRmResourceHealth
 		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=4)]
 		[string]$ResourceName,
 		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=5)]
-		[switch]$Current
+		[switch]$Current,
+		[Parameter(Mandatory=$False,ParameterSetName='strings',Position=6)]
+		[string]$ResourceId
 	)
 	try
 	{
@@ -157,33 +159,40 @@ function Get-AzureRmResourceHealth
 		$Error.Clear();
 
 		$ApiVersion = '2015-01-01';
-		
-		if ($SubscriptionId)
-		{
-			$Subscription = Get-AzureRmSubscription -SubscriptionId $SubscriptionId;
-			$SubscriptionPart = "/subscriptions/$($Subscription.SubscriptionId)";
-		}
-		Write-Verbose $SubscriptionPart
-		$ResourceGroupPart = "";
-		if ($ResourceGroupName)
-		{
-			$ResourceGroup = Get-AzureRmResourceGroup -Name $ResourceGroupName
-			$ResourceGroupPart = "/resourceGroups/$($ResourceGroup.ResourceGroupName)";
-		}
-		Write-Verbose $ResourceGroupPart
-		$ResourceProviderPart = "";
-		if ($ResourceType)
-		{
-			$Resource = Get-AzureRmResource -ResourceName $ResourceName -ResourceType $ResourceType -ResourceGroupName $ResourceGroup.ResourceGroupName;
-			$ResourceProviderPart = "/providers/$($ResourceType)/$($ResourceName)";
-		}
-		Write-Verbose $ResourceProviderPart
 		$ResourceHealthPart = '/providers/Microsoft.ResourceHealth/availabilityStatuses';
+	
+		if (!($ResourceId))
+		{
+			if ($SubscriptionId)
+			{
+				$Subscription = Get-AzureRmSubscription -SubscriptionId $SubscriptionId;
+				$SubscriptionPart = "/subscriptions/$($Subscription.SubscriptionId)";
+			}
+			Write-Verbose $SubscriptionPart
+			$ResourceGroupPart = "";
+			if ($ResourceGroupName)
+			{
+				$ResourceGroup = Get-AzureRmResourceGroup -Name $ResourceGroupName
+				$ResourceGroupPart = "/resourceGroups/$($ResourceGroup.ResourceGroupName)";
+			}
+			Write-Verbose $ResourceGroupPart
+			$ResourceProviderPart = "";
+			if ($ResourceType)
+			{
+				$Resource = Get-AzureRmResource -ResourceName $ResourceName -ResourceType $ResourceType -ResourceGroupName $ResourceGroup.ResourceGroupName;
+				$ResourceProviderPart = "/providers/$($ResourceType)/$($ResourceName)";
+			}
+			Write-Verbose $ResourceProviderPart
+			$ResourceId = "$($SubscriptionPart)$($ResourceGroupPart)$($ResourceProviderPart)$($ResourceHealthPart)";
+		}
+		else
+		{
+			$ResourceId = "$($ResourceId)$($ResourceHealthPart)";
+		}
 
 		# https://management.azure.com/subscriptions/9f304164-74d6-4812-a87e-f1de642bd22c/resourceGroups/azuresupport1/providers/Microsoft.ClassicCompute/virtualMachines/azuresupport1/providers/Microsoft.ResourceHealth/availabilityStatuses/current?api-version=2015-01-01&$expand=recommendedActions’
 		# https://management.azure.com/subscriptions/4970d23e-ed41-4670-9c19-02a1d2808ff9/resourceGroups/Default-Web-WestEurope/providers/Microsoft.Web/sites/rhctestenvStandardWebsite/providers/Microsoft.ResourceHealth/availabilityStatuses?api-version=2015-01-01 
 		
-		$ResourceId = "$($SubscriptionPart)$($ResourceGroupPart)$($ResourceProviderPart)$($ResourceHealthPart)";
 		Write-Verbose $ResourceId
 
 		if ($Current)
